@@ -4,12 +4,59 @@ import customtkinter
 from tkinter import filedialog, simpledialog
 import sys
 import os
+from music_player import play_mp3, stop_music  # Импортируем функции play_mp3 и stop_music
 
 # Текущая приписка
-current_label = "Вопрос"
+current_label_index = 0
+labels = ["Вопрос", "Ответ"]
 
 # Начальный размер шрифта
 font_size = 14
+
+# Добавим переменную для текущего языка
+current_language_index = 0
+languages = ["ru", "en", "fr"]  # Добавьте другие языки по мере необходимости
+
+# Словарь для хранения переводов
+translations = {
+    "ru": {
+        "open_file": "Открыть файл",
+        "save_file": "Сохранить Файл",
+        "font_size": "Размер Шрифта",
+        "change_language": "Сменить Язык",
+        "entry_placeholder": "Ввведи в меня немного текста, дорогой!",
+        "labels": ["Вопрос", "Ответ"]
+    },
+    "en": {
+        "open_file": "Open File",
+        "save_file": "Save File",
+        "font_size": "Font Size",
+        "change_language": "Change Language",
+        "entry_placeholder": "Enter some text, please!",
+        "labels": ["Question", "Answer"]
+    },
+    "fr": {
+        "open_file": "Ouvrir le fichier",
+        "save_file": "Enregistrer le fichier",
+        "font_size": "Taille de la police",
+        "change_language": "Changer de langue >RU",
+        "entry_placeholder": "Entrez un peu de texte, s'il vous plaît!",
+        "labels": ["Question", "Réponse"]
+    }
+}
+
+def change_language():
+    global current_language_index
+    current_language_index = (current_language_index + 1) % len(languages)
+    current_language = languages[current_language_index]
+
+    # Обновить текст кнопок и меток
+    open_button.configure(text=translations[current_language]["open_file"])
+    save_button.configure(text=translations[current_language]["save_file"])
+    change_font_button.configure(text=translations[current_language]["font_size"])
+    change_language_button.configure(text=translations[current_language]["change_language"])
+    label.configure(text=translations[current_language]["labels"][current_label_index])
+    entry.configure(placeholder_text=translations[current_language]["entry_placeholder"])
 
 def get_path(relative_path):
     try:
@@ -20,7 +67,7 @@ def get_path(relative_path):
     return os.path.join(base_path, relative_path)
 
 def save_text(event=None):
-    global current_label
+    global current_label_index
     # Проверка, открыт ли файл
     if not file_path:
         show_warning("Ты файл то для начала открой!")
@@ -37,7 +84,7 @@ def save_text(event=None):
 
     # Записать дату, время, приписку и ввод пользователя в файл
     with open(file_path, 'a') as f:
-        f.write(f"{formatted_now} - {current_label} - {user_input}\n")
+        f.write(f"{formatted_now} - {labels[current_label_index]} - {user_input}\n")
 
     # Очистить поле ввода
     entry.delete(0, tk.END)
@@ -79,13 +126,15 @@ def update_text_box():
     text_box.see(tk.END)
 
 def change_label(event):
-    global current_label
+    global current_label_index
     if event.keysym == 'Up':
-        current_label = "Вопрос"
-        label_color = "#dc6250"
+        current_label_index = (current_label_index - 1) % len(labels)
     elif event.keysym == 'Down':
-        current_label = "Ответ"
-        label_color = "#2152a5"
+        current_label_index = (current_label_index + 1) % len(labels)
+
+    current_label = labels[current_label_index]
+    label_color = "#dc6250" if current_label == "Вопрос" else "#2152a5"
+
     # Update the label text and color
     label.configure(text=current_label, text_color=label_color)
     # Update the color of the corresponding text in the textbox
@@ -138,12 +187,16 @@ def update_font_size():
     text_box.tag_configure("question", foreground="#dc6250", font=arial_font)
     text_box.tag_configure("answer", foreground="#2152a5", font=arial_font)
     text_box.tag_configure("timestamp", foreground="#eeb24a", font=arial_font)
-    if current_label == "Вопрос":
+    if labels[current_label_index] == "Вопрос":
         text_box.tag_configure("label", foreground="#dc6250", font=(arial_font[0], arial_font[1]))
-    elif current_label == "Ответ":
+    elif labels[current_label_index] == "Ответ":
         text_box.tag_configure("label", foreground="#2152a5", font=(arial_font[0], arial_font[1]))
     label.configure(font=arial_font)
     entry.configure(font=arial_font)
+
+def on_closing():
+    stop_music()
+    root.destroy()
 
 # Установить режим внешнего вида и цветовую тему
 customtkinter.set_appearance_mode("dark")  # Режимы: system (по умолчанию), light, dark
@@ -172,6 +225,9 @@ save_button.pack(side=tk.LEFT, padx=5)
 change_font_button = customtkinter.CTkButton(master=nav_frame, text="Размер Шрифта", command=change_font_size, font=arial_font, fg_color="#55927f", text_color="black")
 change_font_button.pack(side=tk.LEFT, padx=5)
 
+change_language_button = customtkinter.CTkButton(master=nav_frame, text=translations[languages[current_language_index]]["change_language"], command=change_language, font=arial_font, fg_color="#55927f", text_color="black")
+change_language_button.pack(side=tk.LEFT, padx=5)
+
 # Создать текстовое поле для отображения содержимого файла
 text_box = tk.Text(root, state=tk.NORMAL, bg="#272a32", fg="#abb2bf", font=arial_font)
 text_box.pack(pady=10, padx=10, fill=tk.BOTH, expand=True)
@@ -186,7 +242,7 @@ input_frame = customtkinter.CTkFrame(master=root)
 input_frame.pack(pady=10, padx=10, fill=tk.X)
 
 # Создать метку для отображения текущей приписки
-label = customtkinter.CTkLabel(master=input_frame, text=current_label, width=10, font=arial_font)
+label = customtkinter.CTkLabel(master=input_frame, text=labels[current_label_index], width=10, font=arial_font)
 label.pack(side=tk.LEFT, padx=5)
 
 # Создать поле ввода для пользователя
@@ -200,6 +256,15 @@ entry.bind("<Control-A>", select_all)
 
 # Установить начальный путь к файлу
 file_path = ""
+
+# Запустить воспроизведение музыки
+play_mp3(get_path("music.mp3"))  # Используем функцию get_path для получения правильного пути
+
+# Установить иконку приложения
+root.iconbitmap(get_path('icon.ico'))
+
+# Добавить обработчик события закрытия окна
+root.protocol("WM_DELETE_WINDOW", on_closing)
 
 # Запустить основной цикл
 root.mainloop()
